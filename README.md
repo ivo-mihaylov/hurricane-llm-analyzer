@@ -1,4 +1,6 @@
 # 🧠 Local LLM Question Answering App
+![CI](https://github.com/ivo-mihaylov/hurricane-llm-analyzer/actions/workflows/ci.yml/badge.svg)
+
 
 This project is a simple but powerful Python application that lets users ask questions about a small dataset using a local Large Language Model (LLM). It loads a dataset of hurricanes, feeds it to the model, and returns intelligent, human-readable answers — all without needing internet access.
 
