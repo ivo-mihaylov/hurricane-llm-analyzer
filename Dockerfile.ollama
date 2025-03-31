@@ -1,0 +1,10 @@
+FROM ollama/ollama:latest
+EXPOSE 11434
+# Install curl (Fix for entrypoint.sh)
+RUN apt-get update && apt-get install -y curl
+
+# Copy entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]

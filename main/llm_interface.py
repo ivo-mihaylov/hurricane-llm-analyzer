@@ -1,16 +1,15 @@
-"""
-This module interacts with the Mistral language model via the local Ollama HTTP API.
-
-Functions:
-- ask_llm: Sends a question to the model and returns a generated response.
-- ask_about_data: Formats a question using a pandas DataFrame and sends it to the model.
-"""
-
-
+import os
 import requests
 import pandas as pd
+import logging
 
-def ask_llm(question: str) -> str: #
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Fetch the URL of Ollama from the environment variable, defaulting to localhost for local development
+ollama_url = os.getenv('OLLAMA_URL', 'http://localhost:11434')
+
+def ask_llm(question: str) -> str:
     """
        Args:
            question (str): The user’s question to send to the LLM.
@@ -18,20 +17,45 @@ def ask_llm(question: str) -> str: #
        Returns:
            str: The LLM’s generated response text.
        """
+    # Use the dynamic Ollama URL
+    url = f"{ollama_url}/api/generate"
+    payload = {"model": "mistral:7b", "prompt": question, "stream": False}
 
-    url = "http://localhost:11434/api/generate"
+    try:
+        # Attempt to send the request to the LLM API
+        response = requests.post(url, json=payload)
 
-    payload = {"model": "mistral",
-               "prompt": question,
-               "stream": False
-               }
+        # Check if the response is successful (status code 200)
+        response.raise_for_status()
 
-    response = requests.post(url, json=payload)
+        # If the request is successful, parse the JSON response
+        result = response.json()
+        return result.get('response', "No response found in the LLM's output.")
 
-    response.raise_for_status()
-    result = response.json()
+    except requests.exceptions.HTTPError as http_err:
+        # Catch HTTP errors (e.g., 404, 500)
+        logging.error(f"HTTP error occurred: {http_err} - Status Code: {response.status_code}")
+        return f"HTTP error occurred: {http_err} - Status Code: {response.status_code}"
 
-    return result['response']
+    except requests.exceptions.ConnectionError as conn_err:
+        # Catch connection errors (e.g., network issues, server unreachable)
+        logging.error(f"Connection error occurred: {conn_err}")
+        return f"Connection error occurred: {conn_err}"
+
+    except requests.exceptions.Timeout as timeout_err:
+        # Catch timeout errors (e.g., request timeout)
+        logging.error(f"Timeout error occurred: {timeout_err}")
+        return f"Timeout error occurred: {timeout_err}"
+
+    except requests.exceptions.RequestException as req_err:
+        # Catch any general request errors
+        logging.error(f"An error occurred during the request: {req_err}")
+        return f"An error occurred during the request: {req_err}"
+
+    except Exception as e:
+        # Catch any other exceptions that may occur
+        logging.error(f"Unexpected error: {e}")
+        return f"Unexpected error: {e}"
 
 def ask_about_data(df: pd.DataFrame, question: str) -> str:
     """
@@ -42,11 +66,13 @@ def ask_about_data(df: pd.DataFrame, question: str) -> str:
        Returns:
            str: The LLM's generated response based on the dataset.
        """
+    try:
+        data_str = df.to_string(index=False)
 
+        prompt = f"Here is a dataset: {data_str}. Based on this data, please answer the following questions: {question}"
 
-    data_str = df.to_string(index=False)
+        return ask_llm(prompt)
 
-    prompt = (f"Here is a dataset: {data_str}. Based on this"
-              f" data, please answer the following questions: {question}")
-
-    return ask_llm(prompt)
+    except Exception as e:
+        logging.error(f"Error in processing the dataset or question: {e}")
+        return f"Error in processing the dataset or question: {e}"

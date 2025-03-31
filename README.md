@@ -1,140 +1,170 @@
 # 🧠 Local LLM Question Answering App
 ![CI](https://github.com/ivo-mihaylov/hurricane-llm-analyzer/actions/workflows/ci.yml/badge.svg)
 
+# Hurricane LLM Analyzer
 
-This project is a simple but powerful Python application that lets users ask questions about a small dataset using a local Large Language Model (LLM). It loads a dataset of hurricanes, feeds it to the model, and returns intelligent, human-readable answers — all without needing internet access.
+This project is a simple, containerized, local LLM-powered web application that allows you to query a hurricane dataset in natural language. It uses:
 
-You can use the app via a **command-line interface** or through a **web browser**.
-
----
-
-## ⚙️ Features
-- Local LLM (Mistral via [Ollama](https://ollama.com)) for answering questions.
-- Uses pandas to manage and structure the dataset.
-- Flask web interface for easy access via browser.
-- Clean modular code and error handling.
+- A **Flask** web interface
+- The **Mistral** large language model
+- Hosted locally via **Ollama**
+- Dockerized for easy testing and sharing
 
 ---
 
-## 📁 Project Structure
-
+## 🔗 Final URL for Testing
+Access the app at:
 ```
-main/
-├── data.py               # The dataset (Python dictionary)
-├── data_loader.py        # Loads the dataset into a pandas DataFrame
-├── llm_interface.py      # Handles interaction with the LLM via HTTP API
-├── app.py                # Main CLI app for asking a question via terminal
-├── web_app.py            # Web app using Flask
-requirements.txt          # Project dependencies
-README.md                 # Project documentation
+http://127.0.0.1:5001
 ```
+> **Note:** Even though Flask internally runs on port `5000`, it is mapped to host port `5001` in Docker. Trying `http://127.0.0.1:5000` will result in **access denied**.
 
 ---
 
-## 🚀 Usage
+## 🚀 How to Run the App
 
-### 🧪 Option A: Run as CLI (terminal app)
+This project is fully containerized using Docker, meaning **you do NOT need to install Python, Ollama, or any dependencies manually**.
 
-#### 1. Start Ollama (Mistral)
+### ✅ Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running on your machine.
+- At least **8–10 GB of free disk space** for model pulling.
+- Internet connection (required to download the base Docker images and the Mistral model on first run).
+
+### 🧭 Steps to Run
+
+1. **Clone the project (if not already):**
+
+   ```bash
+   git clone https://github.com/your-username/your-repo-name.git
+   cd your-repo-name
+   ```
+
+2. **Run the containers using Docker Compose:**
+
+   ```bash
+   docker compose up --build
+   ```
+
+   > This will:
+   > - Start the **Flask** application
+   > - Spin up **Ollama** in a separate container
+   > - Automatically download and launch the **Mistral** language model
+   > - Wait for Ollama to be ready before starting the app
+
+3. **Open your browser and go to:**
+
+   👉 [http://127.0.0.1:5001](http://127.0.0.1:5001)
+
+   > ⚠️ **Note:** Do **NOT** use `http://127.0.0.1:5000` even if the logs suggest it — the app is exposed on **port 5001**, as defined in `docker-compose.yml`.
+
+---
+
+## 📁 Project Structure & Purpose
+
 ```bash
-ollama run mistral
+LLM/
+├── app.py                      # Legacy entry point (not used in container setup)
+├── docker-compose.yml         # Spins up Flask and Ollama containers
+├── Dockerfile                 # For Flask app container
+├── Dockerfile.ollama          # Custom Ollama container with Mistral pre-installed
+├── entrypoint.sh              # Waits for Ollama before starting Flask
+├── wait-for-ollama.sh         # Ensures Ollama is healthy before Flask launches
+├── requirements.txt           # Flask + dependencies
+├── README.md                  # Project documentation
+├── web_app.py                 # Main Flask application
+├── .env                       # Environment variables (optional)
+├── main/
+│   ├── data.py                # Hurricane dataset
+│   ├── data_loader.py         # Loads dataset
+│   └── llm_interface.py       # Handles query-to-LLM communication
+└── tests/
+    └── test_web_app.py        # Sample test case
 ```
 
-#### 2. Run the CLI app
+---
+
+## ⚙️ How It Works – Execution Flow
+
+1. **User** opens `http://127.0.0.1:5001` in browser
+2. **Flask** (`web_app.py`) captures natural language query
+3. It forwards the query to **Ollama's Mistral API** (running at `http://ollama:11434`)
+4. **Mistral** returns an answer, which is displayed back in the browser
+
+---
+
+## 🧩 How the Pieces Work Together
+
+### 📄 `web_app.py`
+- Renders UI and handles HTTP requests
+- Sends queries to `llm_interface.py`
+
+### ⚙️ `llm_interface.py`
+- Sends the user prompt to Mistral via Ollama API
+- Receives and returns the model's response
+
+### 📊 `data_loader.py`
+- Loads the hurricane CSV file into pandas for future enhancement
+
+### 📦 `Dockerfile`
+- Builds the Flask container using Python 3.12
+
+### 🧠 `Dockerfile.ollama`
+- Builds a custom Ollama image that already includes Mistral model
+
+### 🕒 `entrypoint.sh` / `wait-for-ollama.sh`
+- Ensures Flask only starts once Ollama is ready and healthy
+
+---
+
+## 🛠️ Changes Made (Compared to Initial Version)
+
+### ✅ Containerized Ollama
+- **Why:** Originally, testers needed to install Ollama locally. Docker now handles this.
+
+### ✅ Switched to Docker Compose with 2 Services
+- **Why:** Needed Flask and Ollama to run together in sync.
+
+### ✅ Added Health Checks & Entrypoint Wait Script
+- **Why:** Flask was crashing when Ollama wasn't ready. The wait script solves this.
+
+### ✅ Flask port changed to 5001 on host
+- **Why:** Port 5000 was often in use and caused collisions. 5001 avoids this.
+
+### ✅ Pre-installed Mistral inside Dockerfile.ollama
+- **Why:** So users don’t wait 15+ mins on first run, or need internet.
+
+### ✅ CI/CD setup (in `.github/workflows/`)
+- **Why:** Ensures automated testing and clean GitHub pushes
+
+---
+
+## 🧪 Issue Faced: Missing Ollama Locally
+
+### ❌ Initial Error
 ```bash
-python app.py
+ConnectionError: Failed to establish new connection: [Errno 111] Connection refused
 ```
-You'll be prompted to enter a question about the dataset. Example:
-```
-Which hurricane caused the most damage?
-```
+- **Cause:** User’s machine didn’t have Ollama installed
+- **Fix:** Added a dedicated Ollama container via Docker with pre-pulled Mistral model
 
 ---
 
-### 🌐 Option B: Run as Web App (Flask)
+## 🔁 Final Docker Flow
 
-#### 1. Start Ollama (Mistral)
-```bash
-ollama run mistral
-```
-
-#### 2. Run the Flask app
-```bash
-export FLASK_APP=web_app.py
-flask run
-```
-🐳 Option C: Run with Docker
-If you want to containerize the application and run it in an isolated environment using Docker:
-
-1. Make sure Docker is running
-You can start Docker Desktop or use the Docker daemon in your terminal.
-
-2. Build the Docker image
-From the project’s root directory, run:
-
-bash
-Copy
-Edit
-docker build -t llm-flask-app .
-This creates a Docker image named llm-flask-app using the instructions in your Dockerfile. The . means "use the current directory".
-
-3. Run the Docker container
-bash
-Copy
-Edit
-docker run -p 5001:5000 llm-flask-app
-This tells Docker to:
-
-Run the app inside a container based on the llm-flask-app image
-
-Map port 5000 inside the container to port 5001 on your machine (so you can access it)
-
-4. Open the app in your browser
-Visit: http://127.0.0.1:5001
-You can now interact with your app through a web interface, powered by Flask and Docker.
-#### 3. Open the app in your browser
-Visit: [http://127.0.0.1:5000](http://127.0.0.1:5000)  
-Ask your question using the form.
+1. `docker-compose up --build`
+2. Spins up:
+    - `ollama` container (w/ Mistral pre-installed)
+    - `flask_app` container
+3. You can now visit `http://127.0.0.1:5001` and chat with the model!
 
 ---
 
-## 📦 Requirements
-Install dependencies using:
-```bash
-pip install -r requirements.txt
-```
+## 📊 Visual Diagram
+(See attached image below for visual representation of file interactions and flow)
 
-**Dependencies:**
-- `pandas`
-- `requests`
-- `Flask`
+> Separate PNG file: `llm_project_architecture.png`
 
----
 
-## 🧠 How it Works
-1. The dataset is loaded into a pandas DataFrame.
-2. The user submits a natural language question.
-3. A prompt is constructed: the dataset is embedded as text + the user's question.
-4. This prompt is sent via HTTP to Ollama’s local LLM API: `http://localhost:11434/api/generate`
-5. The LLM responds with an intelligent answer.
-6. The app displays the response either in the terminal or web UI.
-
----
-
-## 🛠️ Next Steps
-This version is functional and ready to demo. To improve or deploy:
-- Add Docker support to containerize the app
-- Push to GitHub for sharing
-- Add unit tests or logging (for production)
-- Deploy to Render/Railway for a live public demo
-
----
-
-## 🤖 Notes
-- Ollama must be running locally with the `mistral` model pulled.
-- You can replace `mistral` with another compatible model if needed.
-
----
 
 ## 👩‍💻 Created by
 Ivo Mihaylov - a A Junior Software Automation Engineer applicant
